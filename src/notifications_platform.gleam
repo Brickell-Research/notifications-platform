@@ -108,7 +108,28 @@ fn add_cors_headers(req: wisp.Request, response: wisp.Response) -> wisp.Response
   |> wisp.set_header("access-control-allow-headers", "content-type")
 }
 
+fn add_security_headers(response: wisp.Response) -> wisp.Response {
+  response
+  |> wisp.set_header("x-content-type-options", "nosniff")
+  |> wisp.set_header("x-frame-options", "DENY")
+  |> wisp.set_header("x-xss-protection", "1; mode=block")
+  |> wisp.set_header("referrer-policy", "strict-origin-when-cross-origin")
+  |> wisp.set_header(
+    "content-security-policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none';",
+  )
+  |> wisp.set_header(
+    "strict-transport-security",
+    "max-age=31536000; includeSubDomains",
+  )
+}
+
 fn handle_request(req: wisp.Request, ctx: Context) -> wisp.Response {
+  let response = route_request(req, ctx)
+  add_security_headers(response)
+}
+
+fn route_request(req: wisp.Request, ctx: Context) -> wisp.Response {
   case wisp.path_segments(req), req.method {
     [], http.Get ->
       wisp.ok() |> wisp.string_body("Hello from notifications_platform!")
@@ -501,9 +522,18 @@ fn email_request_decoder() -> decode.Decoder(EmailRequest) {
 }
 
 fn handle_subscribe(req: wisp.Request, ctx: Context) -> wisp.Response {
-  use json_body <- wisp.require_json(req)
+  let client_ip = security.get_client_ip(req)
 
-  case decode.run(json_body, email_request_decoder()) {
+  // Rate limit: 10 subscribe attempts per 5 minutes per IP
+  case rate_limit.is_allowed(ctx.rate_limiter, "subscribe:" <> client_ip, 10, 300) {
+    False ->
+      json.object([#("error", json.string("Too many requests. Please try again later."))])
+      |> json.to_string
+      |> wisp.json_response(429)
+    True -> {
+      use json_body <- wisp.require_json(req)
+
+      case decode.run(json_body, email_request_decoder()) {
     Ok(body) -> {
       // Honeypot validation: if website field is not empty, it's a bot
       case body.website {
@@ -578,6 +608,8 @@ fn handle_subscribe(req: wisp.Request, ctx: Context) -> wisp.Response {
       json.object([#("error", json.string("Invalid request body"))])
       |> json.to_string
       |> wisp.json_response(400)
+      }
+    }
   }
 }
 
@@ -732,35 +764,46 @@ fn unsubscribe_page(message: String, success: Bool) -> wisp.Response {
 }
 
 fn handle_unsubscribe(req: wisp.Request, ctx: Context) -> wisp.Response {
-  use json_body <- wisp.require_json(req)
+  let client_ip = security.get_client_ip(req)
 
-  case decode.run(json_body, email_request_decoder()) {
-    Ok(body) -> {
-      case sql.unsubscribe(ctx.db, body.email) {
-        Ok(returned) ->
-          case list.first(returned.rows) {
-            Ok(subscriber) ->
-              json.object([
-                #("id", json.string(uuid.to_string(subscriber.id))),
-                #("email", json.string(subscriber.email)),
-                #("message", json.string("Successfully unsubscribed")),
-              ])
-              |> json.to_string
-              |> wisp.json_response(200)
+  // Rate limit: 10 unsubscribe attempts per 5 minutes per IP
+  case rate_limit.is_allowed(ctx.rate_limiter, "unsubscribe:" <> client_ip, 10, 300) {
+    False ->
+      json.object([#("error", json.string("Too many requests. Please try again later."))])
+      |> json.to_string
+      |> wisp.json_response(429)
+    True -> {
+      use json_body <- wisp.require_json(req)
 
-            Error(_) ->
-              json.object([#("error", json.string("Subscriber not found"))])
-              |> json.to_string
-              |> wisp.json_response(404)
+      case decode.run(json_body, email_request_decoder()) {
+        Ok(body) -> {
+          case sql.unsubscribe(ctx.db, body.email) {
+            Ok(returned) ->
+              case list.first(returned.rows) {
+                Ok(subscriber) ->
+                  json.object([
+                    #("id", json.string(uuid.to_string(subscriber.id))),
+                    #("email", json.string(subscriber.email)),
+                    #("message", json.string("Successfully unsubscribed")),
+                  ])
+                  |> json.to_string
+                  |> wisp.json_response(200)
+
+                Error(_) ->
+                  json.object([#("error", json.string("Subscriber not found"))])
+                  |> json.to_string
+                  |> wisp.json_response(404)
+              }
+
+            Error(_) -> wisp.internal_server_error()
           }
-
-        Error(_) -> wisp.internal_server_error()
+        }
+        Error(_) ->
+          json.object([#("error", json.string("Invalid request body"))])
+          |> json.to_string
+          |> wisp.json_response(400)
       }
     }
-    Error(_) ->
-      json.object([#("error", json.string("Invalid request body"))])
-      |> json.to_string
-      |> wisp.json_response(400)
   }
 }
 

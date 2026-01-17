@@ -4,9 +4,10 @@
 send_email(Host, Port, Username, Password, From, To, Message) ->
     HostStr = binary_to_list(Host),
 
-    %% SSL/TLS options - no verification for maximum compatibility
+    %% SSL/TLS options with proper certificate verification
     SslOpts = [
-        {verify, verify_none},
+        {verify, verify_peer},
+        {cacerts, public_key:cacerts_get()},
         {versions, ['tlsv1.2', 'tlsv1.3']}
     ],
 
