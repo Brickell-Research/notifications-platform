@@ -1,0 +1,10 @@
+build/
+.git/
+.github/
+*.md
+.env*
+.envrc
+erl_crash.dump
+.claude/
+.gitignore
+docker-compose.yml
