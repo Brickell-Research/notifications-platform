@@ -1,0 +1,23 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: notifications_platform
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  app:
+    build: .
+    ports:
+      - "8088:8088"
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/notifications_platform
+    depends_on:
+      - db
+
+volumes:
+  pgdata:
