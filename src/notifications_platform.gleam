@@ -86,6 +86,8 @@ fn connect_to_database() -> pog.Connection {
 
   let pool_name = process.new_name("notifications_db_pool")
   let assert Ok(config) = pog.url_config(pool_name, database_url)
+  // Limit pool size to avoid exhausting DO managed database connections
+  let config = pog.pool_size(config, 5)
   let assert Ok(started) = pog.start(config)
   started.data
 }
