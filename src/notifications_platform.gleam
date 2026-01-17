@@ -8,6 +8,7 @@ import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
+import gleam/string
 import mist
 import notifications_platform/admin
 import notifications_platform/email
@@ -126,7 +127,21 @@ fn add_security_headers(response: wisp.Response) -> wisp.Response {
 
 fn handle_request(req: wisp.Request, ctx: Context) -> wisp.Response {
   let response = route_request(req, ctx)
+  log_request(req, response)
   add_security_headers(response)
+}
+
+fn log_request(req: wisp.Request, response: wisp.Response) -> Nil {
+  let method = http.method_to_string(req.method)
+  let path = "/" <> string.join(wisp.path_segments(req), "/")
+  let status = int.to_string(response.status)
+  let client_ip = security.get_client_ip(req)
+
+  io.println("[" <> method <> "] " <> path <> " " <> status <> " - " <> client_ip)
+}
+
+fn audit_log(action: String, detail: String, client_ip: String) -> Nil {
+  io.println("[AUDIT] " <> action <> " | " <> detail <> " | IP: " <> client_ip)
 }
 
 fn route_request(req: wisp.Request, ctx: Context) -> wisp.Response {
@@ -264,11 +279,14 @@ fn handle_login(req: wisp.Request, ctx: Context) -> wisp.Response {
         True -> {
           case admin.verify_credentials(ctx.admin_config, email, password) {
             True -> {
+              audit_log("LOGIN_SUCCESS", email, client_ip)
               wisp.redirect("/admin")
               |> admin.create_session(req, _)
             }
-            False ->
+            False -> {
+              audit_log("LOGIN_FAILED", email, client_ip)
               show_login_page_with_csrf(req, Some("Invalid email or password"))
+            }
           }
         }
       }
@@ -321,6 +339,7 @@ fn handle_admin_delete_subscriber(
   ctx: Context,
 ) -> wisp.Response {
   use form <- wisp.require_form(req)
+  let client_ip = security.get_client_ip(req)
 
   let email = list.key_find(form.values, "email") |> result.unwrap("")
 
@@ -330,8 +349,10 @@ fn handle_admin_delete_subscriber(
       case sql.unsubscribe(ctx.db, email) {
         Ok(returned) -> {
           case list.first(returned.rows) {
-            Ok(_) ->
+            Ok(_) -> {
+              audit_log("DELETE_SUBSCRIBER", email, client_ip)
               show_subscribers(ctx, Some(views.Success("Removed " <> email)))
+            }
             Error(_) ->
               show_subscribers(ctx, Some(views.Error("Subscriber not found")))
           }
@@ -463,6 +484,7 @@ fn handle_template_update(
 
 fn handle_template_delete(req: wisp.Request, ctx: Context) -> wisp.Response {
   use form <- wisp.require_form(req)
+  let client_ip = security.get_client_ip(req)
 
   let id = list.key_find(form.values, "id") |> result.unwrap("")
 
@@ -472,8 +494,10 @@ fn handle_template_delete(req: wisp.Request, ctx: Context) -> wisp.Response {
       case sql.delete_template(ctx.db, template_id) {
         Ok(returned) -> {
           case list.first(returned.rows) {
-            Ok(_) ->
+            Ok(_) -> {
+              audit_log("DELETE_TEMPLATE", id, client_ip)
               show_templates(ctx, Some(views.Success("Template deleted")))
+            }
             Error(_) ->
               show_templates(ctx, Some(views.Error("Template not found")))
           }
@@ -886,6 +910,7 @@ fn show_send_page(
 
 fn handle_admin_send(req: wisp.Request, ctx: Context) -> wisp.Response {
   use form <- wisp.require_form(req)
+  let client_ip = security.get_client_ip(req)
 
   let template_id =
     list.key_find(form.values, "template_id") |> result.unwrap("")
@@ -923,6 +948,9 @@ fn handle_admin_send(req: wisp.Request, ctx: Context) -> wisp.Response {
                       }
                     }
                   }
+                  // Audit log the send operation
+                  let recipient_count = int.to_string(list.length(recipients))
+                  audit_log("SEND_EMAIL", template.name <> " to " <> recipient_count <> " recipients", client_ip)
                   // Send emails
                   do_send_emails(ctx, template, recipients)
                 }
