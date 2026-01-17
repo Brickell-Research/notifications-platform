@@ -119,7 +119,7 @@ fn add_security_headers(response: wisp.Response) -> wisp.Response {
   |> wisp.set_header("referrer-policy", "strict-origin-when-cross-origin")
   |> wisp.set_header(
     "content-security-policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none';",
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://brickellresearch.org; frame-ancestors 'none';",
   )
   |> wisp.set_header(
     "strict-transport-security",
