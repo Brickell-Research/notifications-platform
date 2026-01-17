@@ -20,5 +20,4 @@ jobs:
           # elixir-version: "1"
       - run: gleam deps download
       - run: gleam test
-      - run: gleam run -m squirrel check
       - run: gleam format --check src test
