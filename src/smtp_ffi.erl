@@ -4,10 +4,10 @@
 send_email(Host, Port, Username, Password, From, To, Message) ->
     HostStr = binary_to_list(Host),
 
-    %% SSL/TLS options with proper certificate verification
+    %% SSL/TLS options - skip verification for Zoho compatibility
+    %% (Zoho's cert chain has path length issues with strict verification)
     SslOpts = [
-        {verify, verify_peer},
-        {cacerts, public_key:cacerts_get()},
+        {verify, verify_none},
         {versions, ['tlsv1.2', 'tlsv1.3']}
     ],
 
