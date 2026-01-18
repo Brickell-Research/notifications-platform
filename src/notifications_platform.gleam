@@ -641,14 +641,24 @@ fn handle_subscribe(req: wisp.Request, ctx: Context) -> wisp.Response {
 
 fn send_confirmation_email(email: String) -> Result(Nil, Nil) {
   case token.generate(email, token.Confirm) {
-    Error(_) -> Error(Nil)
+    Error(_) -> {
+      io.println("[ERROR] Failed to generate confirmation token for " <> email)
+      Error(Nil)
+    }
     Ok(confirm_token) -> {
       let base_url =
         envoy.get("BASE_URL") |> result.unwrap("http://localhost:8088")
       let confirm_link = base_url <> "/confirm?token=" <> confirm_token
 
       case smtp.load_config() {
-        Error(_) -> Error(Nil)
+        Error(err) -> {
+          let msg = case err {
+            smtp.ConfigError(m) -> m
+            smtp.SendError(m) -> m
+          }
+          io.println("[ERROR] SMTP config error: " <> msg)
+          Error(Nil)
+        }
         Ok(config) -> {
           let subject = "Confirm your subscription"
           let body =
@@ -659,8 +669,18 @@ fn send_confirmation_email(email: String) -> Result(Nil, Nil) {
             <> "If you did not request this subscription, you can ignore this email."
 
           case smtp.send_email(config, email, subject, body) {
-            Ok(_) -> Ok(Nil)
-            Error(_) -> Error(Nil)
+            Ok(_) -> {
+              io.println("[INFO] Confirmation email sent to " <> email)
+              Ok(Nil)
+            }
+            Error(err) -> {
+              let msg = case err {
+                smtp.ConfigError(m) -> m
+                smtp.SendError(m) -> m
+              }
+              io.println("[ERROR] Failed to send confirmation email: " <> msg)
+              Error(Nil)
+            }
           }
         }
       }
