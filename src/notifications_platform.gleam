@@ -1047,7 +1047,15 @@ fn do_send_emails(
             token.generate(recipient.email, token.Unsubscribe)
           {
             Ok(unsub_token) -> base_url <> "/unsubscribe?token=" <> unsub_token
-            Error(_) -> "#"
+            Error(err) -> {
+              let msg = case err {
+                token.MissingSecret -> "TOKEN_SECRET not set"
+                token.InvalidToken -> "Invalid token"
+                token.InvalidSignature -> "Invalid signature"
+              }
+              io.println("[ERROR] Failed to generate unsubscribe token: " <> msg)
+              "#"
+            }
           }
 
           // Render template body (markdown) to HTML and plain text
