@@ -76,7 +76,8 @@ fn hmac_sha256(secret: String, data: String) -> String {
   let secret_bytes = bit_array.from_string(secret)
   let data_bytes = bit_array.from_string(data)
   let hash = do_hmac_sha256(secret_bytes, data_bytes)
-  hex_encode(hash)
+  // Use first 16 chars of hash (64 bits) - shorter but still secure enough for unsubscribe
+  string.slice(hex_encode(hash), 0, 16)
 }
 
 @external(erlang, "token_ffi", "hmac_sha256")
