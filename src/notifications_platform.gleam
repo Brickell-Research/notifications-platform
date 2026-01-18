@@ -597,7 +597,7 @@ fn handle_subscribe(req: wisp.Request, ctx: Context) -> wisp.Response {
                           |> wisp.json_response(200)
                         False -> {
                           // Send confirmation email
-                          let _ = send_confirmation_email(body.email)
+                          let _ = send_confirmation_email(ctx.db, body.email)
                           json.object([
                             #("id", json.string(uuid.to_string(subscriber.id))),
                             #("email", json.string(subscriber.email)),
@@ -639,10 +639,14 @@ fn handle_subscribe(req: wisp.Request, ctx: Context) -> wisp.Response {
   }
 }
 
-fn send_confirmation_email(email: String) -> Result(Nil, Nil) {
+fn send_confirmation_email(db: pog.Connection, email: String) -> Result(Nil, Nil) {
+  let subject = "Confirm your subscription"
+
   case token.generate(email, token.Confirm) {
     Error(_) -> {
       io.println("[ERROR] Failed to generate confirmation token for " <> email)
+      // Record failed send in history
+      let _ = sql.create_send_history(db, "Confirmation", subject, "confirmation", 1, 0, 1)
       Error(Nil)
     }
     Ok(confirm_token) -> {
@@ -657,10 +661,11 @@ fn send_confirmation_email(email: String) -> Result(Nil, Nil) {
             smtp.SendError(m) -> m
           }
           io.println("[ERROR] SMTP config error: " <> msg)
+          // Record failed send in history
+          let _ = sql.create_send_history(db, "Confirmation", subject, "confirmation", 1, 0, 1)
           Error(Nil)
         }
         Ok(config) -> {
-          let subject = "Confirm your subscription"
           let body =
             "Thank you for subscribing to Brickell Research notifications!\n\n"
             <> "Please click the link below to confirm your subscription:\n\n"
@@ -671,6 +676,8 @@ fn send_confirmation_email(email: String) -> Result(Nil, Nil) {
           case smtp.send_email(config, email, subject, body) {
             Ok(_) -> {
               io.println("[INFO] Confirmation email sent to " <> email)
+              // Record successful send in history
+              let _ = sql.create_send_history(db, "Confirmation", subject, "confirmation", 1, 1, 0)
               Ok(Nil)
             }
             Error(err) -> {
@@ -679,6 +686,8 @@ fn send_confirmation_email(email: String) -> Result(Nil, Nil) {
                 smtp.SendError(m) -> m
               }
               io.println("[ERROR] Failed to send confirmation email: " <> msg)
+              // Record failed send in history
+              let _ = sql.create_send_history(db, "Confirmation", subject, "confirmation", 1, 0, 1)
               Error(Nil)
             }
           }
