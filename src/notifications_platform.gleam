@@ -931,7 +931,7 @@ fn show_send_page(
     Ok(r) -> r.rows
     Error(_) -> []
   }
-  let subscriber_count = case sql.get_all_subscribers(ctx.db) {
+  let subscriber_count = case sql.get_confirmed_subscribers(ctx.db) {
     Ok(r) -> list.length(r.rows)
     Error(_) -> 0
   }
@@ -1000,7 +1000,7 @@ fn show_send_page_with_error(ctx: Context, msg: String) -> wisp.Response {
     Ok(r) -> r.rows
     Error(_) -> []
   }
-  let subscriber_count = case sql.get_all_subscribers(ctx.db) {
+  let subscriber_count = case sql.get_confirmed_subscribers(ctx.db) {
     Ok(r) -> list.length(r.rows)
     Error(_) -> 0
   }
