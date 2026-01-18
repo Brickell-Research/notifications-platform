@@ -53,13 +53,25 @@ pub fn wrap_html_email(content_html: String, unsubscribe_link: String) -> String
           </tr>
           <!-- Footer -->
           <tr>
-            <td style=\"padding: 25px 40px; background-color: rgba(0, 206, 209, 0.05); border-top: 1px solid #00CED1; text-align: center; font-size: 12px; color: #5f9ea0;\">
-              <p style=\"margin: 0 0 10px 0; color: #5f9ea0;\">Brickell Research</p>
-              <p style=\"margin: 0;\">
-                <a href=\"" <> unsubscribe_link <> "\" style=\"color: #00CED1 !important; text-decoration: underline; font-size: 14px; display: inline-block; padding: 10px 15px; -webkit-text-size-adjust: 100%;\">Unsubscribe</a>
-              </p>
-              <p style=\"margin: 10px 0 0 0; font-size: 10px; word-break: break-all;\">
-                <a href=\"" <> unsubscribe_link <> "\" style=\"color: #5f9ea0 !important; text-decoration: none; -webkit-text-size-adjust: 100%;\">" <> unsubscribe_link <> "</a>
+            <td style=\"padding: 25px 40px; background-color: #001a1a; border-top: 1px solid #00CED1; text-align: center; font-size: 12px; color: #5f9ea0;\">
+              <p style=\"margin: 0 0 15px 0; color: #5f9ea0;\">Brickell Research</p>
+              <!--[if mso]>
+              <v:roundrect xmlns:v=\"urn:schemas-microsoft-com:vml\" xmlns:w=\"urn:schemas-microsoft-com:office:word\" href=\"" <> unsubscribe_link <> "\" style=\"height:40px;v-text-anchor:middle;width:150px;\" arcsize=\"10%\" strokecolor=\"#00CED1\" fillcolor=\"#001a1a\">
+                <w:anchorlock/>
+                <center style=\"color:#00CED1;font-family:Monaco,monospace;font-size:14px;\">Unsubscribe</center>
+              </v:roundrect>
+              <![endif]-->
+              <!--[if !mso]><!-->
+              <table role=\"presentation\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\" align=\"center\">
+                <tr>
+                  <td style=\"border-radius: 4px; border: 1px solid #00CED1; background-color: #001a1a;\">
+                    <a href=\"" <> unsubscribe_link <> "\" target=\"_blank\" style=\"display: block; padding: 12px 24px; font-family: Monaco, monospace; font-size: 14px; color: #00CED1; text-decoration: none; text-align: center;\">Unsubscribe</a>
+                  </td>
+                </tr>
+              </table>
+              <!--<![endif]-->
+              <p style=\"margin: 15px 0 0 0; font-size: 10px; color: #5f9ea0;\">
+                Or copy this link: " <> unsubscribe_link <> "
               </p>
             </td>
           </tr>
