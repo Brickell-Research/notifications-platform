@@ -56,7 +56,10 @@ pub fn wrap_html_email(content_html: String, unsubscribe_link: String) -> String
             <td style=\"padding: 25px 40px; background-color: rgba(0, 206, 209, 0.05); border-top: 1px solid #00CED1; text-align: center; font-size: 12px; color: #5f9ea0;\">
               <p style=\"margin: 0 0 10px 0; color: #5f9ea0;\">Brickell Research</p>
               <p style=\"margin: 0;\">
-                <a href=\"" <> unsubscribe_link <> "\" style=\"color: #5f9ea0; text-decoration: underline;\">Unsubscribe</a>
+                <a href=\"" <> unsubscribe_link <> "\" style=\"color: #00CED1 !important; text-decoration: underline; font-size: 14px; display: inline-block; padding: 10px 15px; -webkit-text-size-adjust: 100%;\">Unsubscribe</a>
+              </p>
+              <p style=\"margin: 10px 0 0 0; font-size: 10px; word-break: break-all;\">
+                <a href=\"" <> unsubscribe_link <> "\" style=\"color: #5f9ea0 !important; text-decoration: none; -webkit-text-size-adjust: 100%;\">" <> unsubscribe_link <> "</a>
               </p>
             </td>
           </tr>
