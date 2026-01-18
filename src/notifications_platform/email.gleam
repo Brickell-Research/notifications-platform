@@ -29,6 +29,7 @@ pub fn wrap_html_email(content_html: String, unsubscribe_link: String) -> String
                   <td align=\"center\">
                     <img src=\"https://brickellresearch.org/brickell_research_logo.png\" alt=\"Brickell Research\" width=\"48\" height=\"48\" style=\"display: block; margin: 0 auto 15px auto;\">
                     <h1 style=\"margin: 0; font-family: Georgia, serif; color: #FF1493; font-size: 24px; font-weight: bold;\">Brickell Research</h1>
+                    <p style=\"margin: 8px 0 0 0; font-size: 12px; color: #5f9ea0; font-family: Monaco, monospace;\">The research lab behind Caffeine Lang</p>
                   </td>
                 </tr>
               </table>
@@ -54,7 +55,8 @@ pub fn wrap_html_email(content_html: String, unsubscribe_link: String) -> String
           <!-- Footer -->
           <tr>
             <td style=\"padding: 25px 40px; background-color: #001a1a; border-top: 1px solid #00CED1; text-align: center; font-size: 12px; color: #5f9ea0;\">
-              <p style=\"margin: 0 0 15px 0; color: #5f9ea0;\">Brickell Research</p>
+              <p style=\"margin: 0 0 5px 0; color: #5f9ea0;\">Brickell Research</p>
+              <p style=\"margin: 0 0 15px 0; font-size: 10px; color: #5f9ea0;\">Creators of Caffeine Lang</p>
               <!--[if mso]>
               <v:roundrect xmlns:v=\"urn:schemas-microsoft-com:vml\" xmlns:w=\"urn:schemas-microsoft-com:office:word\" href=\"" <> unsubscribe_link <> "\" style=\"height:40px;v-text-anchor:middle;width:150px;\" arcsize=\"10%\" strokecolor=\"#00CED1\" fillcolor=\"#001a1a\">
                 <w:anchorlock/>
