@@ -73,9 +73,12 @@ pub type TurnstileResult {
 pub fn verify_turnstile(token: String, remote_ip: String) -> TurnstileResult {
   let secret = envoy.get("TURNSTILE_SECRET_KEY") |> result.unwrap("")
 
-  case secret {
-    "" -> TurnstileNotConfigured
-    _ -> {
+  case secret, token {
+    // No secret configured - skip verification
+    "", _ -> TurnstileNotConfigured
+    // Secret configured but no token provided - skip (widget may not have loaded)
+    _, "" -> TurnstileNotConfigured
+    _, _ -> {
       let body =
         json.object([
           #("secret", json.string(secret)),

@@ -1,5 +1,4 @@
--- Get all confirmed subscribers for sending notifications
-SELECT id, email
+-- Get all subscribers with their confirmation status
+SELECT id, email, confirmed
 FROM subscribers
-WHERE confirmed = true
-ORDER BY created_at ASC
+ORDER BY created_at DESC

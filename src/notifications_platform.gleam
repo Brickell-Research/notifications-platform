@@ -941,7 +941,8 @@ fn handle_admin_send(req: wisp.Request, ctx: Context) -> wisp.Response {
                       Recipient(email: single_email, subscriber_id: None),
                     ]
                     _ -> {
-                      case sql.get_all_subscribers(ctx.db) {
+                      // Only send to confirmed subscribers
+                      case sql.get_confirmed_subscribers(ctx.db) {
                         Ok(r) ->
                           list.map(r.rows, fn(s) {
                             Recipient(email: s.email, subscriber_id: Some(s.id))

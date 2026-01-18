@@ -378,6 +378,17 @@ fn subscribers_content(
                     attribute.attribute("data-type", "string"),
                   ],
                   [
+                    element.text("Status"),
+                    html.span([attribute.class("sort-indicator")], []),
+                  ],
+                ),
+                html.th(
+                  [
+                    attribute.class("sortable"),
+                    attribute.attribute("data-col", "2"),
+                    attribute.attribute("data-type", "string"),
+                  ],
+                  [
                     element.text("ID"),
                     html.span([attribute.class("sort-indicator")], []),
                   ],
@@ -390,6 +401,20 @@ fn subscribers_content(
               list.map(subscribers, fn(sub) {
                 html.tr([], [
                   html.td([], [element.text(sub.email)]),
+                  html.td(
+                    [
+                      attribute.class(case sub.confirmed {
+                        True -> "status confirmed"
+                        False -> "status pending"
+                      }),
+                    ],
+                    [
+                      element.text(case sub.confirmed {
+                        True -> "Confirmed"
+                        False -> "Pending"
+                      }),
+                    ],
+                  ),
                   html.td([attribute.class("uuid")], [
                     element.text(uuid.to_string(sub.id)),
                   ]),
@@ -1771,6 +1796,18 @@ fn styles() -> String {
   }
   .history-table .send-type.one-off {
     color: #00CED1;
+  }
+  /* Subscriber status styles */
+  .status {
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  .status.confirmed {
+    color: #00CED1;
+  }
+  .status.pending {
+    color: #FF1493;
   }
   .history-table .subject {
     color: #5f9ea0;

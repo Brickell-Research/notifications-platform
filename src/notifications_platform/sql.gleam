@@ -279,10 +279,10 @@ DELETE FROM templates WHERE id = $1 RETURNING id
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type GetAllSubscribersRow {
-  GetAllSubscribersRow(id: Uuid, email: String)
+  GetAllSubscribersRow(id: Uuid, email: String, confirmed: Bool)
 }
 
-/// Get all confirmed subscribers for sending notifications
+/// Get all subscribers with their confirmation status
 ///
 /// > 🐿️ This function was generated automatically using v4.6.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
@@ -293,10 +293,39 @@ pub fn get_all_subscribers(
   let decoder = {
     use id <- decode.field(0, uuid_decoder())
     use email <- decode.field(1, decode.string)
-    decode.success(GetAllSubscribersRow(id:, email:))
+    use confirmed <- decode.field(2, decode.bool)
+    decode.success(GetAllSubscribersRow(id:, email:, confirmed:))
   }
 
-  "-- Get all confirmed subscribers for sending notifications
+  "-- Get all subscribers with their confirmation status
+SELECT id, email, confirmed
+FROM subscribers
+ORDER BY created_at DESC
+"
+  |> pog.query
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
+/// A row you get from running the `get_confirmed_subscribers` query
+/// for sending notifications to confirmed subscribers only.
+///
+pub type GetConfirmedSubscribersRow {
+  GetConfirmedSubscribersRow(id: Uuid, email: String)
+}
+
+/// Get only confirmed subscribers for sending notifications
+///
+pub fn get_confirmed_subscribers(
+  db: pog.Connection,
+) -> Result(pog.Returned(GetConfirmedSubscribersRow), pog.QueryError) {
+  let decoder = {
+    use id <- decode.field(0, uuid_decoder())
+    use email <- decode.field(1, decode.string)
+    decode.success(GetConfirmedSubscribersRow(id:, email:))
+  }
+
+  "-- Get only confirmed subscribers for sending notifications
 SELECT id, email
 FROM subscribers
 WHERE confirmed = true
