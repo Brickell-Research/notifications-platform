@@ -161,10 +161,21 @@ fn route_request(req: wisp.Request, ctx: Context) -> wisp.Response {
     ["unsubscribe"], http.Post ->
       handle_unsubscribe(req, ctx) |> add_cors_headers(req, _)
 
-    // Protected API endpoint - requires API key
+    // Protected API endpoints - requires API key
     ["send"], http.Post -> {
       case security.verify_api_key(req) {
         True -> handle_send(req)
+        False ->
+          json.object([
+            #("error", json.string("Unauthorized - invalid or missing API key")),
+          ])
+          |> json.to_string
+          |> wisp.json_response(401)
+      }
+    }
+    ["send-blast"], http.Post -> {
+      case security.verify_api_key(req) {
+        True -> handle_send_blast(req, ctx)
         False ->
           json.object([
             #("error", json.string("Unauthorized - invalid or missing API key")),
@@ -918,6 +929,164 @@ fn handle_send(req: wisp.Request) -> wisp.Response {
       ])
       |> json.to_string
       |> wisp.json_response(400)
+  }
+}
+
+// --- Blast email endpoint (send to all subscribers) --------------------------
+
+type BlastEmailRequest {
+  BlastEmailRequest(subject: String, body: String)
+}
+
+fn blast_email_request_decoder() -> decode.Decoder(BlastEmailRequest) {
+  use subject <- decode.field("subject", decode.string)
+  use body <- decode.field("body", decode.string)
+  decode.success(BlastEmailRequest(subject:, body:))
+}
+
+fn handle_send_blast(req: wisp.Request, ctx: Context) -> wisp.Response {
+  let client_ip = security.get_client_ip(req)
+  use json_body <- wisp.require_json(req)
+
+  case decode.run(json_body, blast_email_request_decoder()) {
+    Error(_) ->
+      json.object([
+        #(
+          "error",
+          json.string("Invalid request body. Required: subject, body"),
+        ),
+      ])
+      |> json.to_string
+      |> wisp.json_response(400)
+    Ok(body) -> {
+      // Get all confirmed subscribers
+      case sql.get_confirmed_subscribers(ctx.db) {
+        Error(_) ->
+          json.object([#("error", json.string("Failed to fetch subscribers"))])
+          |> json.to_string
+          |> wisp.json_response(500)
+        Ok(returned) -> {
+          let recipients =
+            list.map(returned.rows, fn(s) {
+              Recipient(email: s.email, subscriber_id: Some(s.id))
+            })
+
+          case list.length(recipients) {
+            0 ->
+              json.object([
+                #("sent", json.int(0)),
+                #("failed", json.int(0)),
+                #("message", json.string("No confirmed subscribers")),
+              ])
+              |> json.to_string
+              |> wisp.json_response(200)
+            recipient_count -> {
+              audit_log(
+                "SEND_BLAST",
+                body.subject
+                  <> " to "
+                  <> int.to_string(recipient_count)
+                  <> " recipients",
+                client_ip,
+              )
+              do_send_blast_emails(ctx, body.subject, body.body, recipients)
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+fn do_send_blast_emails(
+  ctx: Context,
+  subject: String,
+  body: String,
+  recipients: List(Recipient),
+) -> wisp.Response {
+  case smtp.load_config() {
+    Error(err) -> {
+      let msg = case err {
+        smtp.ConfigError(m) -> m
+        smtp.SendError(m) -> m
+      }
+      json.object([#("error", json.string("SMTP error: " <> msg))])
+      |> json.to_string
+      |> wisp.json_response(500)
+    }
+    Ok(config) -> {
+      let base_url =
+        envoy.get("BASE_URL") |> result.unwrap("http://localhost:8088")
+
+      // Send to each recipient
+      let results =
+        list.map(recipients, fn(recipient) {
+          // Generate unsubscribe link for this recipient
+          let unsubscribe_link = case
+            token.generate(recipient.email, token.Unsubscribe)
+          {
+            Ok(unsub_token) -> base_url <> "/unsubscribe?token=" <> unsub_token
+            Error(err) -> {
+              let msg = case err {
+                token.MissingSecret -> "TOKEN_SECRET not set"
+                token.InvalidToken -> "Invalid token"
+                token.InvalidSignature -> "Invalid signature"
+              }
+              io.println(
+                "[ERROR] Failed to generate unsubscribe token: " <> msg,
+              )
+              "#"
+            }
+          }
+
+          // Render markdown body to HTML and plain text
+          let email_content = email.render_template(body, unsubscribe_link)
+
+          // Send multipart email
+          let send_result =
+            smtp.send_email_multipart(
+              config,
+              recipient.email,
+              subject,
+              email_content.plain_text,
+              email_content.html,
+            )
+
+          case send_result {
+            Ok(_) -> #(recipient.email, True, "")
+            Error(err) -> {
+              let msg = case err {
+                smtp.ConfigError(m) -> m
+                smtp.SendError(m) -> m
+              }
+              #(recipient.email, False, msg)
+            }
+          }
+        })
+
+      let sent = list.filter(results, fn(r) { r.1 }) |> list.length
+      let failed = list.filter(results, fn(r) { !r.1 }) |> list.length
+
+      // Record in send_history
+      let _ =
+        sql.create_send_history(
+          ctx.db,
+          "Blast: " <> subject,
+          subject,
+          "email",
+          list.length(recipients),
+          sent,
+          failed,
+        )
+
+      json.object([
+        #("sent", json.int(sent)),
+        #("failed", json.int(failed)),
+        #("message", json.string("Blast email completed")),
+      ])
+      |> json.to_string
+      |> wisp.json_response(200)
+    }
   }
 }
 
