@@ -1,26 +1,10 @@
 services:
-  db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: notifications_platform
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   app:
     build: .
     ports:
       - "8088:8088"
     environment:
-      DATABASE_URL: postgres://postgres:postgres@db:5432/notifications_platform
+      DATABASE_URL: ${DATABASE_URL}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
       TOKEN_SECRET: ${TOKEN_SECRET}
@@ -30,9 +14,3 @@ services:
       SMTP_USERNAME: ${SMTP_USERNAME}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL}
-    depends_on:
-      db:
-        condition: service_healthy
-
-volumes:
-  pgdata:

@@ -1,6 +1,7 @@
 import envoy
 import gleam/dynamic/decode
 import gleam/erlang/process
+import gleam/uri
 import gleam/http
 import gleam/int
 import gleam/io
@@ -86,8 +87,28 @@ fn connect_to_database() -> pog.Connection {
 
   let pool_name = process.new_name("notifications_db_pool")
   let assert Ok(config) = pog.url_config(pool_name, database_url)
-  // Limit pool size to avoid exhausting DO managed database connections
+  // Limit pool size to avoid exhausting managed database connections
   let config = pog.pool_size(config, 5)
+
+  // Pass Neon endpoint ID via connection_parameters for SNI-less clients
+  let config = case uri.parse(database_url) {
+    Ok(parsed) ->
+      case parsed.host {
+        Some(host) ->
+          case string.split(host, ".") {
+            [endpoint_id, ..] ->
+              pog.connection_parameter(
+                config,
+                "options",
+                "endpoint=" <> endpoint_id,
+              )
+            _ -> config
+          }
+        None -> config
+      }
+    Error(_) -> config
+  }
+
   let assert Ok(started) = pog.start(config)
   started.data
 }
